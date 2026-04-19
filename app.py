@@ -1,8 +1,8 @@
+#coding : UTF-8
+
 # =========================================================
 # EduStat - Application de Collecte & Analyse Scolaire
 # Cours   : INF 232 EC2 - Analyse de données
-# Thème   : Éducation / Performances académiques
-# Backend : Python + Streamlit + SQLite + Plotly
 # =========================================================
 
 import streamlit as st          # Pour créer l'interface web
@@ -408,4 +408,190 @@ elif page == "📊  Analyse descriptive":
     c4.metric("🏆 Max",       f"{df['note'].max():.1f}/20")
     c5.metric("📉 Min",       f"{df['note'].min():.1f}/20")
 
-    st.markdow
+    st.divider()
+
+    # ---- TABLEAU DES STATISTIQUES ----
+    st.subheader("📋 Tableau des Statistiques Descriptives")
+    stats = df[["note", "heures_etude", "taux_presence"]].describe().round(2)
+
+    # Renomme les lignes pour les rendre compréhensibles
+    stats.index = ["Effectif (n)", "Moyenne", "Écart-type",
+                   "Minimum", "1er Quartile (25%)", "Médiane (50%)",
+                   "3e Quartile (75%)", "Maximum"]
+    stats.columns = ["Notes /20", "Heures d'étude/sem", "Présence (%)"]
+    st.dataframe(stats, use_container_width=True)
+
+    st.divider()
+
+    # ---- GRAPHIQUES ----
+    col_gauche, col_droite = st.columns(2)
+
+    # --- Histogramme des notes ---
+    with col_gauche:
+        st.subheader("📊 Distribution des Notes")
+        fig1 = px.histogram(
+            df, x="note", nbins=10,
+            color_discrete_sequence=["#1a73e8"],
+            labels={"note": "Note /20", "count": "Nombre d'étudiants"},
+            title="Répartition des notes obtenues"
+        )
+        # Ligne verticale = moyenne
+        fig1.add_vline(
+            x=df["note"].mean(), line_dash="dash", line_color="red",
+            annotation_text=f"Moyenne : {df['note'].mean():.2f}",
+            annotation_position="top right"
+        )
+        st.plotly_chart(fig1, use_container_width=True)
+
+    # --- Répartition des mentions ---
+    with col_droite:
+        st.subheader("🏅 Répartition des Mentions")
+        ordre = ["Excellent","Très Bien","Bien","Assez Bien","Passable","Insuffisant"]
+        cnt_mention = df["mention"].value_counts().reindex(ordre, fill_value=0).reset_index()
+        cnt_mention.columns = ["Mention", "Nombre"]
+        fig2 = px.bar(
+            cnt_mention, x="Mention", y="Nombre",
+            color="Mention",
+            color_discrete_sequence=px.colors.qualitative.Set2,
+            title="Nombre d'étudiants par mention"
+        )
+        st.plotly_chart(fig2, use_container_width=True)
+
+    col_g2, col_d2 = st.columns(2)
+
+    # --- Moyenne par filière ---
+    with col_g2:
+        st.subheader("🏫 Moyenne par Filière")
+        moy_fil = (df.groupby("filiere")["note"]
+                     .mean()
+                     .reset_index()
+                     .sort_values("note", ascending=True))
+        moy_fil.columns = ["Filière", "Moyenne"]
+        fig3 = px.bar(
+            moy_fil, x="Moyenne", y="Filière",
+            orientation="h",
+            color="Moyenne",
+            color_continuous_scale="Blues",
+            title="Performance moyenne selon la filière",
+            text=moy_fil["Moyenne"].round(2)
+        )
+        fig3.update_traces(textposition="outside")
+        st.plotly_chart(fig3, use_container_width=True)
+
+    # --- Répartition Hommes / Femmes ---
+    with col_d2:
+        st.subheader("👥 Répartition par Sexe")
+        sexe_cnt = df["sexe"].value_counts().reset_index()
+        sexe_cnt.columns = ["Sexe", "Nombre"]
+        fig4 = px.pie(
+            sexe_cnt, names="Sexe", values="Nombre",
+            color_discrete_sequence=["#1a73e8", "#e91e63"],
+            title="Proportion Hommes / Femmes",
+            hole=0.4
+        )
+        st.plotly_chart(fig4, use_container_width=True)
+
+    st.divider()
+
+    # --- Corrélation Heures d'étude / Notes ---
+    st.subheader("⏰ Corrélation : Heures d'Étude vs Notes")
+    st.caption("Plus un étudiant travaille, ses notes sont-elles meilleures ?")
+    fig5 = px.scatter(
+        df, x="heures_etude", y="note",
+        color="filiere",
+        size="taux_presence",
+        hover_name="nom",
+        trendline="ols",                # Ligne de tendance (régression linéaire)
+        labels={"heures_etude": "Heures d'étude / semaine",
+                "note": "Note /20",
+                "filiere": "Filière",
+                "taux_presence": "Présence (%)"},
+        title="Nuage de points : Travail personnel vs Performance"
+    )
+    st.plotly_chart(fig5, use_container_width=True)
+
+    # --- Taux de présence / Notes ---
+    st.subheader("✅ Corrélation : Présence vs Notes")
+    st.caption("Les étudiants qui viennent plus en cours ont-ils de meilleures notes ?")
+    fig6 = px.scatter(
+        df, x="taux_presence", y="note",
+        color="niveau",
+        hover_name="nom",
+        trendline="ols",
+        labels={"taux_presence": "Taux de présence (%)",
+                "note": "Note /20",
+                "niveau": "Niveau"},
+        title="Impact de la présence sur les résultats"
+    )
+    st.plotly_chart(fig6, use_container_width=True)
+
+    # --- Tableau comparatif par niveau ---
+    st.divider()
+    st.subheader("📚 Comparaison par Niveau")
+    recap = (df.groupby("niveau")[["note","heures_etude","taux_presence"]]
+               .agg(["mean","min","max","std"])
+               .round(2))
+    # Aplatir les colonnes multi-niveaux
+    recap.columns = [
+        "Moy Note","Min Note","Max Note","Éc.Type Note",
+        "Moy H.Étude","Min H.Étude","Max H.Étude","Éc.Type H.Étude",
+        "Moy Présence","Min Présence","Max Présence","Éc.Type Présence"
+    ]
+    st.dataframe(recap, use_container_width=True)
+
+
+# ===========================================================
+# PAGE 4 — À PROPOS
+# ===========================================================
+elif page == "ℹ️  À propos":
+
+    st.header("ℹ️ À propos de EduStat")
+    st.markdown("""
+    ---
+    ### 🎯 Objectif
+    **EduStat** est une application web de collecte et d'analyse descriptive des
+    performances académiques. Elle aide enseignants et responsables pédagogiques
+    à identifier les facteurs qui influencent la réussite des étudiants.
+
+    ---
+    ### 🛠️ Technologies utilisées
+
+    | Outil | Rôle |
+    |-------|------|
+    | **Python** | Langage de programmation principal |
+    | **Streamlit** | Création de l'interface web interactive |
+    | **SQLite** | Base de données locale (fichier .db) |
+    | **Pandas** | Manipulation et analyse des données |
+    | **Plotly** | Graphiques interactifs |
+
+    ---
+    ### 📦 Structure du projet
+    ```
+    edustat/
+    ├── app.py            ← Application principale
+    ├── requirements.txt  ← Liste des dépendances Python
+    └── README.md         ← Instructions de déploiement
+    ```
+
+    ---
+    ### 📈 Analyses disponibles
+    - **Statistiques descriptives** : moyenne, médiane, écart-type, quartiles
+    - **Distribution des notes** (histogramme)
+    - **Répartition des mentions** (diagramme en barres)
+    - **Performance par filière** (barres horizontales)
+    - **Répartition Hommes/Femmes** (camembert)
+    - **Corrélation heures d'étude / notes** (nuage de points + régression)
+    - **Corrélation présence / notes** (nuage de points + régression)
+    - **Comparaison par niveau** (tableau synthétique)
+
+    ---
+    ### 📚 Cours
+    **INF 232 EC2** — Analyse de données
+    """)
+
+# Pied de page
+st.markdown("""
+<div class="footer">
+    🎓 EduStat — INF 232 EC2
+</div>
+""", unsafe_allow_html=True)
