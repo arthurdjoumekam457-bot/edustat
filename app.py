@@ -1,6 +1,9 @@
 # =========================================================
 # EduStat - Application de Collecte & Analyse Scolaire
-# Cours   : INF 232 EC2 - Analyse de données =========================================================
+# Cours   : INF 232 EC2 - Analyse de données
+# Thème   : Éducation / Performances académiques
+# Backend : Python + Streamlit + SQLite + Plotly
+# =========================================================
 
 import streamlit as st          # Pour créer l'interface web
 import pandas as pd             # Pour manipuler les données
@@ -405,4 +408,4 @@ elif page == "📊  Analyse descriptive":
     c4.metric("🏆 Max",       f"{df['note'].max():.1f}/20")
     c5.metric("📉 Min",       f"{df['note'].min():.1f}/20")
 
-    st.divider
+    st.markdow
